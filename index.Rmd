@@ -19,68 +19,91 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Adithya Arunganesh aa86362
 
 #### Introduction 
 
 Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+*For this project, the first dataset I selected was a dataset of Historical Esports Data which details different games for which esports tournaments were held along with earnings, players participating in tournament and number of tournaments. I selected this dataset since I am a fan of esports tournaments and it truly impresses me as a gamer to watch these pros play with absolute skill and ease knowing from experience how difficult some of these games are. The second dataset I selected is a dataset of Twitch game data that contains a list of the top games streamed on Twitch along with hours watched, hours streamed, peak viewers, peak channels, number of streamers, number of average viewer, number of average viewers, and the viewer ratio. I was interested in looking at Twitch viewership since Twitch is known as a platform where many of these Esports players showcase themselves and where most of these games gain popularity among the community. Both of these datasets contain years, months, and games which will be the columns I will be merging the two datasets by.*
 
 ```{R}
-# read your datasets in here, e.g., with read_csv()
-
+library(tidyverse)
+esports <- read_csv("HistoricalEsportData.csv")
+twitch <- read_csv("Twitch_game_data.csv")
+esports <- esports %>% separate(Date, into = c("Year", "Month", NA)) #Needed since esports dataset contains "Date" which needs to be split into "Year" and "Month"
 ```
 
 #### Tidying: Reshaping
 
 If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
 
-```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
-```
 
+```{R}
+head(esports)
+esports %>% pivot_wider(names_from = Game, values_from = Earnings) -> esports_test
+head(esports_test)
+esports_test %>% pivot_longer(cols = c(5:509), names_to = "Game", values_to = "Earnings", values_drop_na = TRUE) -> esports_test
+head(esports_test)
+```
+*My datasets are tidy but I decided to untidy and retidy the esports dataset using pivot_longer and pivot_wider. First, I used pivot_wider on the esports dataset pivoting from the Games column and using Earnings as my values to get every Game row into a column. Then, I used pivot_longer on the new dataset to take those transformed columns and turned them back to Games and Earnings appropriately and I dropped NAs that were caused from the pivot_wider step. *
     
 #### Joining/Merging
 
 ```{R}
-# your joining code
 
-# your joining code
+twitch$Year <- as.character(twitch$Year)   
+inner_join(esports, twitch, by= c("Year", "Month", "Game")) -> combined
+
+nrow(esports)
+nrow(twitch)
+esports %>% group_by(Year, Month, Game) %>% n_distinct()
+twitch %>% group_by(Year, Month, Game) %>% n_distinct()
+nrow(anti_join(esports, twitch, by = c("Year", "Month", "Game")))
+nrow(anti_join(twitch, esports, by = c("Year", "Month", "Game")))
+nrow(combined)
+
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+*I decided to do an inner join on these two datasets using "Year", "Month", and "Game" since I wanted to only obtain the statistics for the dates and games instead of having NAs in the joined datasets. For number of observations, there are 7012 observations in the esports dataset while there are 13800 observations in the twitch dataset. The number of unique IDs for each are the same as the number of observations for both datasets since every row in both datasets are unique. There are 5477 unique IDS in the esports dataset while there are 12265 unique IDs in the twitch dataset. There are 1535 IDs that both have in common. The size of the joined dataset (1535) is smaller than both of the original datasets which means some rows were excluded in the join. Specifically, there were 12265 rows excluded in the twitch dataset and 5477 rows excluded in the esports dataset which means a lot of the data is removed. *
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+library(gt)
+combined %>% filter(str_detect(Year, "201[\\w]")) %>% mutate(Earnings_per_tour = Earnings/Tournaments) %>% arrange(desc(Earnings_per_tour)) -> combined_altered
+combined_altered %>% select_if(is_numeric) %>% summarise_all(.funs = c(mean="mean", sd="sd", median="median", min="min", max="max"), na.rm=T) %>% gt()
+combined_altered %>% group_by(Game) %>% select_if(is_numeric) %>% summarise_all(.funs = c(mean="mean", sd="sd", median="median", min="min", max="max"), na.rm=T) %>% arrange(desc(Earnings_mean)) %>% gt() %>% tab_header(title = md("Summary Statistics"))
 
-# your wrangling code
+combined %>% summarize(n_distinct(Game), n_distinct(Month), n_distinct(Year), n_distinct(Hours_Streamed)) 
+
+
 
 # your wrangling code
 ```
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+*First I filtered the data frame using str_detect to only use years in the 2010s and then used mutate to create a new variable called Earnings per Tournaments which is the quotient of Earnings and Tournaments. Then I piped that dataframe for the tables; first, I selected only numeric columns using select and then used summarize all to calculate the summary statistics for mean, sd, median, min, and max. Then, I used gt to make the table look pretty. Next, I did the same thing but grouped by Game to get summary statistics for each Game and then arranged it in terms of Earnings (greatest to least) and added a title to the table as well.*
+*There are 105 games, 12 months, 6 years, and 1527 hours streamed within the dataset. Since every column is full, there is no NAs within this dataset. *
 
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+ggplot(combined, aes(x=Streamers, y=Hours_watched)) + geom_point(aes(color=Year)) + scale_y_continuous(breaks = seq(0, 400000000, by = 50000000)) + geom_smooth(method=lm) + ggtitle("Number of streamers for games vs hours watched") + ylab("Hours watched (hrs)")
 ```
 
-Your discussion of plot 1
+*This scatterplot details the number of streamers for each entry (game for certain competition month) vs the number of hours watched for that game on Twitch during the same time. The different colors are dependent on the years and the y-axis has been changed to add more tick marks and change title. There is a positive linear relationship between streamers and hours watched. *
 
 ```{R}
-# your plot 2
+ggplot(data=combined, aes(x=Month, y=Earnings)) + geom_bar(stat="summary", fill="darkviolet")+ theme_minimal() + ggtitle("Total Earnings in Esports per Month") + xlab("Months") + ylab("Earnings (in $)")
 ```
 
-Your discussion of plot 2
+*This plot is a bar graph that compares the different months and the earnings from each month earned from esports. I have also changed the fill and the theme for the graph. As we can see, most earnings from esports are earned during the month of August. *
 
 ```{R}
-# your plot 3
+ggplot(combined, aes(x=Tournaments)) + geom_histogram(color="black", fill="red", binwidth = 10)
 ```
 
-Your discussion of plot 3
+*This plot is a histogram with a width of 10 that is categorized by the number of Tournaments for a game in each month. As you can see by the skewed right distribution, most of the games have 0 tournaments. *
 
 #### Concluding Remarks
 
