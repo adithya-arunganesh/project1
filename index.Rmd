@@ -30,7 +30,7 @@ Paragraph or two introducing your datasets and variables, why they are interesti
 library(tidyverse)
 esports <- read_csv("HistoricalEsportData.csv")
 twitch <- read_csv("Twitch_game_data.csv")
-esports <- esports %>% separate(Date, into = c("Year", "Month", NA)) #Needed since esports dataset contains "Date" which needs to be split into "Year" and "Month"
+esports <- esports %>% separate(Date, into = c("Month", NA, "Year")) #Needed since esports dataset contains "Date" which needs to be split into "Year" and "Month"
 ```
 
 #### Tidying: Reshaping
@@ -52,6 +52,7 @@ head(esports_test)
 ```{R}
 
 twitch$Year <- as.character(twitch$Year)   
+twitch$Month <- as.character(twitch$Month) 
 inner_join(esports, twitch, by= c("Year", "Month", "Game")) -> combined
 
 nrow(esports)
